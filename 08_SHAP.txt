@@ -1,0 +1,51 @@
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import shap
+
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score
+
+# 1. Load dataset
+df = pd.read_csv(r"C:\Users\TEJAS\OneDrive\Desktop\Project Kushagra Sir\alzheimers_disease_data.csv")
+
+# 2. Features and target
+X = df.iloc[:, 0:32]
+y = df.iloc[:, 32]
+
+# 3. Split data
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42
+)
+
+# 4. Train model
+rf = RandomForestClassifier(n_estimators=100, random_state=42)
+rf.fit(X_train, y_train)
+
+# 5. Prediction
+y_pred = rf.predict(X_test)
+print("Accuracy:", accuracy_score(y_test, y_pred) * 100)
+
+# 6. SHAP explainer
+explainer = shap.TreeExplainer(rf)
+shap_values = explainer.shap_values(X_test)
+
+# 7. SHAP Summary Plot
+shap.summary_plot(shap_values, X_test)
+
+# 8. SHAP Bar Plot
+shap.summary_plot(shap_values, X_test, plot_type="bar")
+
+# 9. SHAP Dependence Plot
+shap.dependence_plot(0, shap_values, X_test)
+
+# 10. SHAP Force Plot (one sample)
+shap.force_plot(
+    explainer.expected_value[1],
+    shap_values[1][:, :, 1][0] if isinstance(shap_values, list)
+    else shap_values[0, :, 1],
+    X_test.iloc[0],
+    matplotlib=True
+)

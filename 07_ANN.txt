@@ -1,0 +1,94 @@
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.neural_network import MLPClassifier
+from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
+
+# 1. Load dataset
+df = pd.read_csv(r"C:\Users\TEJAS\OneDrive\Desktop\Project Kushagra Sir\alzheimers_disease_data.csv")
+
+# 2. Features and target
+X = df.iloc[:, 0:32]
+y = df.iloc[:, 32]
+
+# 3. Split data
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42, stratify=y
+)
+
+# 4. Scaling
+scaler = StandardScaler()
+X_train = scaler.fit_transform(X_train)
+X_test = scaler.transform(X_test)
+
+# 5. Train ANN model
+ann = MLPClassifier(
+    hidden_layer_sizes=(100,),
+    activation='relu',
+    solver='adam',
+    max_iter=500,
+    random_state=42
+)
+
+ann.fit(X_train, y_train)
+
+# 6. Prediction
+y_pred_train = ann.predict(X_train)
+y_pred_test = ann.predict(X_test)
+
+# 7. Evaluation
+print("Training Accuracy:", accuracy_score(y_train, y_pred_train) * 100)
+print("Testing Accuracy:", accuracy_score(y_test, y_pred_test) * 100)
+
+print("Confusion Matrix:\n", confusion_matrix(y_test, y_pred_test))
+print("Classification Report:\n", classification_report(y_test, y_pred_test))
+
+# 8. Plot
+plt.plot(ann.loss_curve_)
+plt.xlabel("Iterations")
+plt.ylabel("Loss")
+plt.title("ANN Training Loss")
+plt.show()
+
+
+
+
+models = [(50,), (100,), (150,), (100, 50), (100, 50, 25)]
+
+accuracy = []
+accuracy_t = []
+
+for i in range(len(models)):
+
+    ann = MLPClassifier(
+        hidden_layer_sizes=models[i],
+        activation='relu',
+        solver='adam',
+        max_iter=500,
+        random_state=42
+    )
+
+    ann.fit(X_train, y_train)
+
+    y_pred_train = ann.predict(X_train)
+    y_pred_test = ann.predict(X_test)
+
+    accuracy.append(accuracy_score(y_train, y_pred_train))
+    accuracy_t.append(accuracy_score(y_test, y_pred_test))
+
+    print("Model:", models[i])
+    print("Training Accuracy:", accuracy[i] * 100)
+    print("Testing Accuracy:", accuracy_t[i] * 100)
+
+# Plot
+plt.plot(accuracy, label="Training Accuracy", marker='o')
+plt.plot(accuracy_t, label="Testing Accuracy", marker='o')
+plt.xlabel("Models")
+plt.ylabel("Accuracy")
+plt.title("ANN Model Comparison")
+plt.legend()
+plt.show()

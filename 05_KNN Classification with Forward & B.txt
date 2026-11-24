@@ -1,0 +1,205 @@
+KNN Classification with Forward & Backward Feature Elimination (K = 3)
+
+
+import pandas as pd
+import numpy as np
+
+from sklearn.model_selection import train_test_split
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+
+# 1. Load dataset
+df = pd.read_csv(r"C:\Users\Exam\Desktop\breat_cancer_data\alzheimers_disease_data.csv")
+
+X = df.iloc[:, :32]
+y = df.iloc[:, 32]
+
+# 2. Split data
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42, stratify=y
+)
+
+# 3. Forward Elimination
+selected = []
+remaining = list(X.columns)
+best_acc = 0
+
+for i in range(32):
+    scores = []
+
+    for feature in remaining:
+        temp = selected + [feature]
+
+        knn = KNeighborsClassifier(n_neighbors=3)
+        knn.fit(X_train[temp], y_train)
+
+        pred = knn.predict(X_test[temp])
+        scores.append((accuracy_score(y_test, pred), feature))
+
+    score, feature = max(scores)
+
+    if score > best_acc:
+        best_acc = score
+        selected.append(feature)
+        remaining.remove(feature)
+    else:
+        break
+
+print("Selected Features:", selected)
+print("Best Accuracy:", best_acc * 100)
+
+# 4. Final Model
+knn = KNeighborsClassifier(n_neighbors=3)
+knn.fit(X_train[selected], y_train)
+
+y_pred_train = knn.predict(X_train[selected])
+y_pred_test = knn.predict(X_test[selected])
+
+print("\nTraining Accuracy:", accuracy_score(y_train, y_pred_train) * 100)
+print("Testing Accuracy:", accuracy_score(y_test, y_pred_test) * 100)
+print("Classification Report:\n", classification_report(y_test, y_pred_test))
+print("Confusion Matrix:\n", confusion_matrix(y_test, y_pred_test))
+
+
+
+import pandas as pd
+import numpy as np
+
+from sklearn.model_selection import train_test_split
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+
+# 1. Load dataset
+df = pd.read_csv(r"C:\Users\Exam\Desktop\breat_cancer_data\alzheimers_disease_data.csv")
+
+X = df.iloc[:, :32]
+y = df.iloc[:, 32]
+
+# 2. Split data
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42, stratify=y
+)
+
+# 3. Backward Elimination
+selected = list(X.columns)
+best_acc = 0
+
+for i in range(32):
+    scores = []
+
+    for feature in selected:
+        temp = [f for f in selected if f != feature]
+
+        knn = KNeighborsClassifier(n_neighbors=3)
+        knn.fit(X_train[temp], y_train)
+
+        pred = knn.predict(X_test[temp])
+        scores.append((accuracy_score(y_test, pred), feature, temp))
+
+    score, feature, temp = max(scores)
+
+    if score > best_acc:
+        best_acc = score
+        selected = temp
+    else:
+        break
+
+print("Selected Features:", selected)
+print("Best Accuracy:", best_acc * 100)
+
+# 4. Final Model
+knn = KNeighborsClassifier(n_neighbors=3)
+knn.fit(X_train[selected], y_train)
+
+y_pred_train = knn.predict(X_train[selected])
+y_pred_test = knn.predict(X_test[selected])
+
+print("\nTraining Accuracy:", accuracy_score(y_train, y_pred_train) * 100)
+print("Testing Accuracy:", accuracy_score(y_test, y_pred_test) * 100)
+print("Classification Report:\n", classification_report(y_test, y_pred_test))
+print("Confusion Matrix:\n", confusion_matrix(y_test, y_pred_test))
+
+
+
+
+original code
+
+
+import pandas as pd
+import numpy as np
+import os
+import sklearn
+from sklearn.model_selection import train_test_split
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+
+df = pd.read_csv(r"C:\Users\Exam\Desktop\breat_cancer_data\alzheimers_disease_data.csv")
+
+X = df.iloc[:,:32]
+y = df.iloc[:,32]
+
+X_train, X_test, y_train, y_test = train_test_split( X, y, test_size=0.2, random_state=42)
+
+c = 0
+a = len(X_train.columns)
+
+for i in range(0,32):
+    X_train = X_train.iloc[:,:a-c]
+    X_test = X_test.iloc[:,:a-c]
+    
+    knn = KNeighborsClassifier(n_neighbors=3, weights='uniform', metric='minkowski', p=2)
+    knn.fit(X_train, y_train)
+    
+    y_pred_train = knn.predict(X_train)
+    y_pred_test = knn.predict(X_test)
+    
+    y_train = np.array(y_train)
+    y_test = np.array(y_test)
+    
+    TN=TP=FP=FN =0
+    for j in range(0,len(y_pred_train)):
+        if(y_pred_train[j]==1 and y_train[j]==1): TP+=1
+        elif(y_pred_train[j]==0 and y_train[j]==0): TN+=1
+        elif(y_pred_train[j]==1 and y_train[j]==0): FP+=1
+        elif(y_pred_train[j]==0 and y_train[j]==1): FN+=1
+
+    Acc = (TP + TN) / (TP + TN + FP + FN)
+    Pre = TP / (TP + FP) if (TP + FP) != 0 else 0
+    Recall = TP / (TP + FN) if (TP + FN) != 0 else 0
+    f1_score = (
+        2 * Pre * Recall / (Pre + Recall)
+        if (Pre + Recall) != 0
+        else 0)
+    
+
+    print(f"Training Set{i}")
+    print(Acc)
+    print(Pre)
+    print(Recall)
+    print(f1_score)
+    c+=1
+    
+    tn=tp=fp=fn =0
+    for k in range(0,len(y_pred_test)):
+        if(y_pred_test[k]==1 and y_test[k]==1): tp+=1
+        elif(y_pred_test[k]==0 and y_test[k]==0): tn+=1
+        elif(y_pred_test[k]==1 and y_test[k]==0): fp+=1
+        elif(y_pred_test[k]==1 and y_test[k]==0): fn+=1
+
+    #
+    #print(tp)
+    
+    Acc_t = (tp + tn) / (tp + tn + fp + fn)
+    Pre_t = tp / (tp + fp) if (tp + fp) != 0 else 0
+    Recall_t = tp / (tp + fn) if (tp + fn) != 0 else 0
+    f1_score_t = (
+        2 * Pre * Recall / (Pre + Recall)
+        if (Pre + Recall) != 0
+        else 0)
+
+    print("Testing Set")
+    print(Acc_t)
+    print(Pre_t)
+    print(Recall_t)
+    print(f1_score_t)
+    
