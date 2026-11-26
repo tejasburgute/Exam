@@ -1,0 +1,153 @@
+
+# ============================================================
+# PRACTICAL 8: CHIP-SEQ PEAK CALLING USING MACS3
+# Genome: Mus musculus (mm10)
+# ============================================================
+
+# 1. CREATE ENVIRONMENT AND INSTALL TOOLS
+conda create -n chipseq -c conda-forge -c bioconda \
+sra-tools bowtie2 samtools macs3 homer \
+ucsc-bedgraphtobigwig -y
+
+conda activate chipseq
+
+# 2. CREATE WORKING DIRECTORY
+mkdir -p ~/ChIPseq/{data,genome,results,output}
+cd ~/ChIPseq
+
+# 3. DOWNLOAD SRA DATA
+cd data
+
+prefetch SRR7254769
+fasterq-dump SRR7254769 --split-files -e 4
+
+# Repeat for other samples if required
+prefetch SRR7254771
+fasterq-dump SRR7254771 --split-files -e 4
+
+prefetch SRR7254773
+fasterq-dump SRR7254773 --split-files -e 4
+
+# 4. DOWNLOAD MM10 REFERENCE GENOME
+cd ~/ChIPseq/genome
+
+wget https://genome-idx.s3.amazonaws.com/bt/mm10.zip
+unzip mm10.zip
+
+# 5. BOWTIE2 ALIGNMENT
+cd ~/ChIPseq/data
+
+bowtie2 -p 4 --very-sensitive --end-to-end \
+--no-unal --no-mixed \
+-1 SRR7254769_1.fastq \
+-2 SRR7254769_2.fastq \
+-x ~/ChIPseq/genome/mm10 \
+-S SRR7254769.sam
+
+# 6. CONVERT SAM TO BAM
+samtools view -b SRR7254769.sam > SRR7254769.bam
+
+# 7. NAME SORT BAM (FOR DUPLICATE PROCESSING)
+samtools sort -n SRR7254769.bam -o SRR7254769_namesort.bam
+
+# 8. FIX MATE INFORMATION
+samtools fixmate -m SRR7254769_namesort.bam SRR7254769_fixmate.bam
+
+# 9. COORDINATE SORT BAM
+samtools sort SRR7254769_fixmate.bam -o SRR7254769_sorted.bam
+
+# 10. INDEX BAM
+samtools index SRR7254769_sorted.bam
+
+# 11. REMOVE PCR DUPLICATES
+samtools markdup -r SRR7254769_sorted.bam SRR7254769_rmdup.bam
+
+# 12. INDEX DUPLICATE-REMOVED BAM
+samtools index SRR7254769_rmdup.bam
+
+# 13. CHECK ALIGNMENT STATISTICS
+samtools flagstat SRR7254769_sorted.bam
+samtools flagstat SRR7254769_rmdup.bam
+
+# 14. MACS3 PEAK CALLING
+cd ~/ChIPseq/results
+
+macs3 callpeak \
+-t ~/ChIPseq/data/SRR7254769_rmdup.bam \
+-f BAM \
+-g mm \
+-n SRR7254769 \
+-B \
+-q 0.01
+
+# 15. VIEW MACS3 OUTPUT
+ls -lrt
+head SRR7254769_summits.bed
+head SRR7254769_peaks.narrowPeak
+
+# 16. HOMER MOTIF ANALYSIS
+cd ~/ChIPseq
+
+# Check HOMER
+which findMotifsGenome.pl
+
+# IMPORTANT: mm10 must be installed in HOMER.
+# If not installed, configure/download the HOMER mm10 genome first.
+
+mkdir -p output
+
+findMotifsGenome.pl \
+results/SRR7254769_summits.bed \
+mm10 \
+output \
+-len 10,12,14 \
+-p 4 \
+-size -100,100
+
+# 17. CHECK HOMER RESULTS
+ls output
+
+# 18. SORT BEDGRAPH FILE
+cd ~/ChIPseq/results
+
+sort -k1,1 -k2,2n \
+SRR7254769_treat_pileup.bdg \
+> SRR7254769_treat_pileup.sorted.bdg
+
+# 19. DOWNLOAD MM10 CHROMOSOME SIZES
+cd ~/ChIPseq/genome
+
+wget https://hgdownload.soe.ucsc.edu/goldenPath/mm10/bigZips/mm10.chrom.sizes
+
+# 20. CONVERT BEDGRAPH TO BIGWIG
+cd ~/ChIPseq/results
+
+bedGraphToBigWig \
+SRR7254769_treat_pileup.sorted.bdg \
+~/ChIPseq/genome/mm10.chrom.sizes \
+SRR7254769_treat_pileup.bw
+
+# 21. FINAL OUTPUT FILES
+ls -lh ~/ChIPseq/results
+ls -lh ~/ChIPseq/output
+
+# ============================================================
+# 22. VISUALIZATION USING IGV
+# ============================================================
+# Open IGV GUI and select genome: mm10
+#
+# Load:
+# SRR7254769_treat_pileup.bw
+# SRR7254769_peaks.narrowPeak
+# SRR7254769_rmdup.bam
+# SRR7254769_rmdup.bam.bai
+#
+# Observe:
+# 1. ChIP-seq signal enrichment
+# 2. Peak locations
+# 3. Read coverage
+# 4. Overlap between peaks and signal
+#
+# ============================================================
+# END OF PRACTICAL
+# ============================================================

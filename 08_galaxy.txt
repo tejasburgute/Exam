@@ -1,0 +1,46 @@
+WES ANALYSIS – GALAXY
+
+1. Upload FASTQ (R1, R2)
+2. FastQC – Quality check
+3. MultiQC – Combine reports
+4. Trimmomatic – Read trimming
+5. FastQC – Check trimmed reads
+6. BWA-MEM – Read alignment
+7. SAMtools Sort – Sort BAM
+8. SAMtools Index – Index BAM
+9. Picard MarkDuplicates – Mark duplicates
+10. SAMtools flagstat – Alignment statistics
+11. FreeBayes – Variant calling
+12. BCFtools norm – Normalize variants
+13. BCFtools filter – Filter variants
+14. SnpEff – Variant annotation
+15. ClinVar / gnomAD – Variant interpretation
+16. IGV – Variant visualization
+
+FASTQ → QC → TRIM → ALIGN → BAM
+→ VARIANT CALLING → FILTER → ANNOTATE
+→ INTERPRET
+
+
+
+
+
+
+
+RNA seq
+
+**RNA-SEQ ANALYSIS – GALAXY**
+
+1. Upload FASTQ – Upload paired-end reads
+2. FastQC – Quality check
+3. MultiQC – Combine quality reports
+4. Cutadapt – Adapter and quality trimming
+5. FastQC – Check trimmed reads
+6. HISAT2 – Read alignment to dm6 reference
+7. SAMtools Sort – Sort BAM files
+8. FeatureCounts – Count reads per gene using GTF
+9. DESeq2 – Differential gene expression analysis
+10. Volcano Plot – Visualize differentially expressed genes
+
+**FASTQ → QC → TRIM → ALIGN → SORT → COUNT**\
+**→ DESeq2 → DIFFERENTIAL EXPRESSION → VOLCANO**

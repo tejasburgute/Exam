@@ -1,0 +1,427 @@
+
+# PRACTICAL 6: DIFFERENTIAL GENE EXPRESSION ANALYSIS
+
+# 1. INSTALLATION
+setwd("/home/despu/Documents/rch/")
+
+install.packages(c("tidyverse", "pheatmap"))
+
+if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+BiocManager::install(c(
+    "GEOquery", "limma", "edgeR", "DESeq2",
+    "EnhancedVolcano", "clusterProfiler",
+    "org.Hs.eg.db", "AnnotationDbi", "Biobase"
+), ask = FALSE, update = FALSE)
+
+# 2. LOAD LIBRARIES
+library(GEOquery)
+library(Biobase)
+library(limma)
+library(pheatmap)
+library(EnhancedVolcano)
+library(tidyverse)
+
+# 3. DOWNLOAD GEO DATA
+gset <- getGEO("GSE10072", GSEMatrix = TRUE)
+
+length(gset)
+
+eset <- gset[[1]]
+
+expr <- exprs(eset)
+pdata <- pData(eset)
+pheno <- pData(eset)
+
+head(expr)
+dim(expr)
+head(pdata)
+colnames(pdata)
+
+# 4. QUALITY ASSESSMENT
+
+# Boxplot
+boxplot(expr, las = 2, main = "Expression Distribution")
+
+# PCA
+pca <- prcomp(t(expr), scale. = TRUE)
+
+plot(pca$x[,1], pca$x[,2],
+     xlab = "PC1",
+     ylab = "PC2",
+     main = "PCA Plot",
+     pch = 19)
+
+# MDS
+plotMDS(expr)
+
+# 5. SAMPLE INFORMATION
+dim(pheno)
+colnames(pheno)
+
+pheno[, intersect(
+    c("title", "source_name_ch1",
+      "characteristics_ch1", "characteristics_ch1.1",
+      "characteristics_ch1.2", "characteristics_ch1.3"),
+    colnames(pheno)
+), drop = FALSE]
+
+# 6. IDENTIFY NORMAL AND TUMOR GROUPS
+group <- factor(
+    ifelse(grepl("tumou?r", pheno$source_name_ch1, ignore.case = TRUE),
+           "Tumor",
+           ifelse(grepl("normal|non.?tumou?r", pheno$source_name_ch1,
+                        ignore.case = TRUE),
+                  "Normal", NA)),
+    levels = c("Normal", "Tumor")
+)
+
+# Check groups
+table(group, useNA = "ifany")
+
+# Keep only identified samples
+keep <- !is.na(group)
+
+expr <- expr[, keep, drop = FALSE]
+pheno <- pheno[keep, , drop = FALSE]
+group <- droplevels(group[keep])
+
+# Verify
+table(group)
+
+# 7. DESIGN MATRIX
+design <- model.matrix(~0 + group)
+
+colnames(design) <- levels(group)
+
+design
+design[1:6, ]
+dim(design)
+
+# 8. CONTRAST MATRIX
+contrast.matrix <- makeContrasts(
+    Tumor - Normal,
+    levels = design
+)
+
+contrast.matrix
+
+# 9. FIT LINEAR MODEL
+fit <- lmFit(expr, design)
+
+# 10. APPLY CONTRAST
+fit2 <- contrasts.fit(fit, contrast.matrix)
+
+# 11. EMPIRICAL BAYES
+fit2 <- eBayes(fit2)
+
+# 12. COMPLETE RESULTS TABLE
+results <- topTable(
+    fit2,
+    number = Inf,
+    adjust.method = "BH",
+    sort.by = "P"
+)
+
+head(results)
+
+# 13. SELECT SIGNIFICANT DEGs
+sig <- subset(
+    results,
+    adj.P.Val < 0.05 & abs(logFC) > 1
+)
+
+# UPREGULATED GENES
+up <- subset(sig, logFC > 1)
+
+# DOWNREGULATED GENES
+down <- subset(sig, logFC < -1)
+
+# DEG COUNTS
+cat("Total DEGs:", nrow(sig), "\n")
+cat("Upregulated:", nrow(up), "\n")
+cat("Downregulated:", nrow(down), "\n")
+
+# TOP GENES
+head(up[order(-up$logFC), ], 10)
+head(down[order(down$logFC), ], 10)
+
+# 14. SAVE RESULTS
+write.csv(results, "DGE_results.csv")
+write.csv(sig, "Significant_DEGs.csv")
+write.csv(up, "Upregulated_Genes.csv")
+write.csv(down, "Downregulated_Genes.csv")
+
+# 15. VOLCANO PLOT
+EnhancedVolcano(
+    results,
+    lab = rownames(results),
+    x = "logFC",
+    y = "adj.P.Val",
+    pCutoff = 0.05,
+    FCcutoff = 1,
+    title = "Tumor vs Normal",
+    subtitle = "GSE10072",
+    xlab = "Log2 Fold Change",
+    ylab = "-Log10 Adjusted P-value"
+)
+
+# 16. SELECT TOP 50 GENES
+topgenes <- head(
+    order(results$adj.P.Val),
+    50
+)
+
+# 17. HEATMAP
+annotation_col <- data.frame(Group = group)
+rownames(annotation_col) <- colnames(expr)
+
+pheatmap(
+    expr[topgenes, , drop = FALSE],
+    scale = "row",
+    annotation_col = annotation_col,
+    main = "Top 50 Differentially Expressed Genes"
+)
+
+# 18. MA PLOT
+plotMA(
+    results,
+    main = "MA Plot: Tumor vs Normal",
+    ylim = c(-5, 5)
+)
+
+# 19. FINAL SUMMARY
+cat("\nFINAL RESULTS\n")
+cat("Total probes:", nrow(results), "\n")
+cat("Significant DEGs:", nrow(sig), "\n")
+cat("Upregulated genes:", nrow(up), "\n")
+cat("Downregulated genes:", nrow(down), "\n")
+
+# 20. SESSION INFORMATION
+sessionInfo()
+
+
+
+
+#######################  06_07 ###################
+setwd("C:\Users\TEJAS\OneDrive\Desktop\NGS\NGS")
+install.packages(c("tidyverse","pheatmap"))
+if(!require(BiocManager))
+  install.packages("BiocManager")
+BiocManager::install(c("GOSemSim","enrichplot","gson","yulab.utlis","enrichit","clusterprofile"))
+BiocManager::install(c(
+  "GEOquery",
+  "limma",
+  "edgeR",
+  "DESeq2",
+  "EnhancedVolcano",
+  "clusterProfiler",
+  "org.Hs.eg.db",
+  "AnnotationDbi",
+  "Biobase"
+))
+BiocManager::install("GEOquery")
+library(GEOquery)
+gset <- getGEO(
+  "GSE10072",
+  GSEMatrix = TRUE
+)    #See number of platforms
+getGEO("GSE10072", GSEMatrix=TRUE)
+expr <- exprs(gset[[1]])    #Extract expression matrix
+
+
+head(expr)    #View
+dim(expr)    
+pdata <- pData(gset[[1]])
+head(pdata)
+colnames(pdata)
+boxplot(expr, las=2)
+prcomp(t(expr))
+library(limma)
+plotMDS(expr)
+library(ggplot2)
+
+eset <- gset[[1]]
+pheno <- pData(eset)
+dim(pheno)
+colnames(pheno)
+pheno[, c("title",
+          "source_name_ch1",
+          "characteristics_ch1",
+          "characteristics_ch1.1",
+          "characteristics_ch1.2",
+          "characteristics_ch1.3")]
+
+#Differential Expression Analysis
+library(limma)
+pheno <- pData(eset)
+#Forming Categorical Variables
+group <- factor(pheno$source_name_ch1)
+table(group)
+#Creating Design Matrix
+design <- model.matrix(~0 + group)
+colnames(design) <- c("Adenocarcinoma_Lung", "Normal_Lung")
+design[1:6, ]
+dim(design)
+#Creating the Contrast
+contrast.matrix <- makeContrasts(
+  Adenocarcinoma_Lung - Normal_Lung,
+  levels = design
+)
+#Fit the Linear Model
+fit <- lmFit(expr, design)
+#Apply the Tumor vs Normal contrast
+fit2 <- contrasts.fit(
+  fit,
+  contrast.matrix
+)
+#Empirical Bayes Moderation
+fit2 <- eBayes(fit2)
+#Generate the Complete Results Table
+results <- topTable(
+  fit2,
+  number = Inf,
+  adjust.method = "BH"
+)
+#Select Significant DEGs
+sig <- subset(
+  results,
+  adj.P.Val <0.05 &
+    abs(logFC)>1
+)
+
+write.csv(
+  results,
+  "DGE_results.csv"
+)
+#This saves all genes/probes and their statistics., will be saved in your working directory.
+write.csv(
+  sig,
+  "Significant_DEGs.csv"
+)
+#This saves only genes passing:
+#adjusted P-value < 0.05
+#AND
+#abs(logFC)>1
+#Visualization of Results
+#Volcano Plot
+library(EnhancedVolcano)
+EnhancedVolcano(
+  results,
+  lab = rownames(results),
+  x = "logFC",
+  y = "adj.P.Val"
+)
+
+BiocManager::install("EnhancedVolcano")
+library(EnhancedVolcano)
+
+EnhancedVolcano(
+  results,
+  lab = rownames(results),
+  x = "logFC",
+  y = "adj.P.Val",
+  pCutoff = 0.05,
+  FCcutoff = 1,
+  title = "GSE10072 Differential Expression",
+  subtitle = "Adenocarcinoma Lung vs Normal Lung"
+)
+
+
+EnhancedVolcano(
+  results,
+  lab = rownames(results),
+  x = "logFC",
+  y = "adj.P.Val",
+  pCutoff = 0.05,
+  FCcutoff = 1,
+  title = "Tumor vs Normal"
+)
+#topgenes
+topgenes <- head(
+  order(results$adj.P.Val),
+  50
+)
+
+
+#pheat map
+library(pheatmap)	# Loads the heatmap package.
+
+pheatmap(
+  expr[topgenes,]
+)
+
+plotMA(results)
+
+########## practical_07 code##################
+
+BiocManager::install(c(
+  "hgu133a.db",
+  "AnnotationDbi",
+  "clusterProfiler",
+  "org.Hs.eg.db"
+))
+library(hgu133a.db)
+library(AnnotationDbi)
+library(clusterProfiler)
+library(org.Hs.eg.db)
+probe_ids <- rownames(sig)
+
+gene_annotation <- AnnotationDbi::select(
+  hgu133a.db,
+  keys = probe_ids,
+  columns = c("PROBEID", "SYMBOL", "ENTREZID"),
+  keytype = "PROBEID"
+)
+
+gene_annotation <- gene_annotation[
+  !is.na(gene_annotation$ENTREZID),
+]
+
+
+ego <- enrichGO(
+  gene          = gene_list,
+  OrgDb         = org.Hs.eg.db,
+  keyType       = "ENTREZID",
+  ont           = "BP",
+  pAdjustMethod = "BH",
+  pvalueCutoff  = 0.05,
+  qvalueCutoff  = 0.05,
+  readable      = TRUE
+)
+
+head(ego)
+go_results <- as.data.frame(ego)
+
+head(go_results)
+
+
+
+
+dotplot(ego, showCategory = 20)
+
+barplot(ego, showCategory = 20)
+
+emapplot(ego)
+
+
+ekegg <- enrichKEGG(
+  gene          = gene_list,
+  organism      = "hsa",
+  pvalueCutoff  = 0.05,
+  pAdjustMethod = "BH"
+)
+
+head(ekegg)
+
+kegg_results <- as.data.frame(ekegg)
+
+head(kegg_results)
+
+
+dotplot(ekegg, showCategory = 20)
+
+
+barplot(ekegg, showCategory = 20)
+

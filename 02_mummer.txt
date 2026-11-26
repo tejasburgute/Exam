@@ -1,0 +1,54 @@
+# Install MUMmer
+conda create -n mummer4 -c conda-forge -c bioconda mummer4 -y
+conda activate mummer4
+
+# Q1: Genome alignment
+nucmer --prefix=anthracis B_anthracis_Mslice.fasta B_anthracis_contigs.fasta
+
+delta-filter -i 95 anthracis.delta > anthracis_95.delta
+
+show-coords -rclT anthracis_95.delta > anthracis_95.coords
+
+cat anthracis_95.coords
+
+# Total reference coverage
+awk 'NR>5 {sum+=$5} END {print sum}' anthracis_95.coords
+
+# Sort alignments
+sort -k1,1n anthracis_95.coords > anthracis_sorted.coords
+
+# Q2: SNPs and Indels
+show-snps -Clr anthracis_95.delta > anthracis_95.snps
+
+head anthracis_95.snps
+
+# Total variants
+grep -v "^\[" anthracis_95.snps | wc -l
+
+# SNP count
+awk '$2!="." && $3!="."' anthracis_95.snps | wc -l
+
+# Insertions
+awk '$2=="."' anthracis_95.snps | wc -l
+
+# Deletions
+awk '$3=="."' anthracis_95.snps | wc -l
+
+# Q3: Structural variations
+show-diff anthracis_95.delta > anthracis_95.diff
+
+cat anthracis_95.diff
+
+# Count structural variations
+grep "GAP" anthracis_95.diff | wc -l
+grep "DUP" anthracis_95.diff | wc -l
+grep "INV" anthracis_95.diff | wc -l
+grep "JMP" anthracis_95.diff | wc -l
+grep "BRK" anthracis_95.diff | wc -l
+grep "SEQ" anthracis_95.diff | wc -l
+
+# Mauve installation
+conda install -c bioconda mauve -y
+
+# Launch Mauve
+mauve

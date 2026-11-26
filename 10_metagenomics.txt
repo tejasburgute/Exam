@@ -1,0 +1,240 @@
+
+# ============================================================
+# PRACTICAL 10: METAGENOMICS – 16S rRNA SEQUENCE ANALYSIS
+# SOFTWARE: QIIME 2
+# DATASET: MOVING PICTURES
+# ============================================================
+
+# 1. INSTALL QIIME 2
+
+conda update conda -y
+
+conda env create \
+--name rachis-qiime2-2026.7 \
+--file https://raw.githubusercontent.com/qiime2/distributions/refs/heads/dev/2026.7/qiime2/released/rachis-qiime2-linux-64-conda.yml
+
+# Activate environment
+conda deactivate
+conda activate rachis-qiime2-2026.7
+
+# Check installation
+qiime info
+
+
+# 2. CREATE WORKING DIRECTORY
+
+mkdir -p ~/QIIME2_Project
+cd ~/QIIME2_Project
+
+mkdir -p single-end-sequences emp-single-end-sequences output
+
+
+# 3. DOWNLOAD SAMPLE METADATA
+
+wget -O sample_metadata.tsv \
+https://data.qiime2.org/2020.11/tutorials/moving-pictures/sample_metadata.tsv
+
+
+# 4. DOWNLOAD BARCODE SEQUENCES
+
+wget https://data.qiime2.org/2020.11/tutorials/moving-pictures/emp-single-end-sequences/barcodes.fastq.gz
+
+
+# 5. DOWNLOAD BIOLOGICAL SEQUENCES
+
+wget -O emp-single-end-sequences/sequences.fastq.gz \
+https://data.qiime2.org/2020.11/tutorials/moving-pictures/emp-single-end-sequences/sequences.fastq.gz
+
+
+# 6. ORGANISE SEQUENCE FILES
+
+mv barcodes.fastq.gz emp-single-end-sequences/
+
+ls emp-single-end-sequences/
+
+
+# 7. IMPORT RAW SEQUENCES INTO QIIME 2
+
+qiime tools import \
+--type EMPSingleEndSequences \
+--input-path emp-single-end-sequences \
+--output-path singleend-sequences.qza
+
+
+# 8. DEMULTIPLEXING
+
+qiime demux emp-single \
+--i-seqs singleend-sequences.qza \
+--m-barcodes-file sample_metadata.tsv \
+--m-barcodes-column barcode-sequence \
+--o-per-sample-sequences demux.qza \
+--o-error-correction-details demuxdetails.qza
+
+
+# 9. ASSESS SEQUENCE QUALITY
+
+qiime demux summarize \
+--i-data demux.qza \
+--o-visualization demux.qzv
+
+# View quality report
+qiime tools view demux.qzv
+
+# Alternative: Upload demux.qzv to
+# https://view.qiime2.org/
+
+
+# 10. DENOISING USING DADA2
+
+qiime dada2 denoise-single \
+--i-demultiplexed-seqs demux.qza \
+--p-trim-left 0 \
+--p-trunc-len 120 \
+--p-n-threads 4 \
+--o-representative-sequences representative-sequences.qza \
+--o-table table.qza \
+--o-denoising-stats denoising-stats.qza
+
+
+# 11. VISUALISE DADA2 STATISTICS
+
+qiime metadata tabulate \
+--m-input-file denoising-stats.qza \
+--o-visualization denoising-stats.qzv
+
+qiime tools view denoising-stats.qzv
+
+
+# 12. SUMMARISE FEATURE TABLE
+
+qiime feature-table summarize \
+--i-table table.qza \
+--m-metadata-file sample_metadata.tsv \
+--o-summary table-summary.qzv \
+--o-sample-frequencies sample-frequencies.qza \
+--o-feature-frequencies feature-frequencies.qza
+
+# View feature table
+qiime tools view table-summary.qzv
+
+
+# 13. BUILD PHYLOGENETIC TREE
+
+qiime phylogeny align-to-tree-mafft-fasttree \
+--i-sequences representative-sequences.qza \
+--o-alignment aligned-rep-seqs.qza \
+--o-masked-alignment masked-aligned-rep-seqs.qza \
+--o-tree unrooted-tree.qza \
+--o-rooted-tree rooted-tree.qza
+
+# Inspect tree artifact
+qiime tools peek rooted-tree.qza
+
+
+# 14. ALPHA AND BETA DIVERSITY ANALYSIS
+
+qiime diversity core-metrics-phylogenetic \
+--i-phylogeny rooted-tree.qza \
+--i-table table.qza \
+--p-sampling-depth 1103 \
+--m-metadata-file sample_metadata.tsv \
+--output-dir core-metrics-results
+
+
+# 15. ALPHA RAREFACTION ANALYSIS
+
+qiime diversity alpha-rarefaction \
+--i-table table.qza \
+--i-phylogeny rooted-tree.qza \
+--p-max-depth 4000 \
+--m-metadata-file sample_metadata.tsv \
+--o-visualization alpha-rarefaction.qzv
+
+qiime tools view alpha-rarefaction.qzv
+
+
+# 16. ALPHA DIVERSITY GROUP SIGNIFICANCE
+
+# Faith's Phylogenetic Diversity
+qiime diversity alpha-group-significance \
+--i-alpha-diversity core-metrics-results/faith_pd_vector.qza \
+--m-metadata-file sample_metadata.tsv \
+--o-visualization core-metrics-results/faith-pd-group-significance.qzv
+
+# Observed Features
+qiime diversity alpha-group-significance \
+--i-alpha-diversity core-metrics-results/observed_features_vector.qza \
+--m-metadata-file sample_metadata.tsv \
+--o-visualization core-metrics-results/observed-features-significance.qzv
+
+
+# 17. BETA DIVERSITY GROUP SIGNIFICANCE
+
+# Body-site comparison
+qiime diversity beta-group-significance \
+--i-distance-matrix core-metrics-results/unweighted_unifrac_distance_matrix.qza \
+--m-metadata-file sample_metadata.tsv \
+--m-metadata-column body-site \
+--o-visualization core-metrics-results/unweighted-unifrac-body-site-significance.qzv \
+--p-pairwise
+
+# Subject comparison
+qiime diversity beta-group-significance \
+--i-distance-matrix core-metrics-results/unweighted_unifrac_distance_matrix.qza \
+--m-metadata-file sample_metadata.tsv \
+--m-metadata-column subject \
+--o-visualization core-metrics-results/unweighted-unifrac-subject-significance.qzv \
+--p-pairwise
+
+
+# 18. TAXONOMIC CLASSIFICATION USING SILVA
+
+# Download trained SILVA classifier separately.
+# Place the downloaded .qza file in the working directory.
+
+# Classify representative sequences
+qiime feature-classifier classify-sklearn \
+--i-classifier SILVA_144_SSURef_NR99_uniform_classifier_full-length.qza \
+--i-reads representative-sequences.qza \
+--o-classification taxonomy.qza \
+--p-n-jobs 4
+
+
+# 19. VISUALISE TAXONOMIC ASSIGNMENTS
+
+qiime metadata tabulate \
+--m-input-file taxonomy.qza \
+--o-visualization taxonomy.qzv
+
+qiime tools view taxonomy.qzv
+
+
+# 20. GENERATE TAXONOMIC BAR PLOTS
+
+qiime taxa barplot \
+--i-table table.qza \
+--i-taxonomy taxonomy.qza \
+--m-metadata-file sample_metadata.tsv \
+--o-visualization taxa-bar-plots.qzv
+
+# View taxonomic bar plots
+qiime tools view taxa-bar-plots.qzv
+
+
+# 21. INSPECT QIIME 2 ARTIFACTS
+
+qiime tools peek table.qza
+qiime tools peek representative-sequences.qza
+qiime tools peek taxonomy.qza
+qiime tools peek rooted-tree.qza
+
+
+# 22. VIEW ALL OUTPUT FILES
+
+ls -lh
+ls -lh core-metrics-results/
+ls -lh output/
+
+# ============================================================
+# END OF PRACTICAL 10
+# ============================================================

@@ -1,0 +1,88 @@
+# Install tools
+conda create -n exome -c bioconda sra-tools fastqc trimmomatic bowtie2 samtools gatk4 bcftools -y
+conda activate exome
+
+# Download SRA
+prefetch SRR2584863
+fasterq-dump SRR2584863 --split-files
+
+# Quality check
+fastqc SRR2584863_1.fastq SRR2584863_2.fastq
+
+# Trimming
+trimmomatic PE -threads 4 \
+SRR2584863_1.fastq SRR2584863_2.fastq \
+R1_paired.fastq.gz R1_unpaired.fastq.gz \
+R2_paired.fastq.gz R2_unpaired.fastq.gz \
+LEADING:20 TRAILING:20 SLIDINGWINDOW:4:20 MINLEN:50
+
+# FastQC after trimming
+fastqc R1_paired.fastq.gz R2_paired.fastq.gz
+
+# Download reference genome
+# Place reference as ref.fasta
+
+# Build Bowtie2 index
+bowtie2-build ref.fasta ref
+
+# Alignment
+bowtie2 -x ref -1 R1_paired.fastq.gz -2 R2_paired.fastq.gz -S sample.sam
+
+# SAM to BAM
+samtools view -bS sample.sam > sample.bam
+
+# Sort and index
+samtools sort sample.bam -o sample_sorted.bam
+samtools index sample_sorted.bam
+
+# Add Read Groups
+gatk AddOrReplaceReadGroups \
+-I sample_sorted.bam \
+-O sample_RG.bam \
+-RGID sample -RGLB lib1 -RGPL ILLUMINA -RGPU unit1 -RGSM sample
+
+samtools index sample_RG.bam
+
+# Mark duplicates
+gatk MarkDuplicates \
+-I sample_RG.bam \
+-O sample_dedup.bam \
+-M metrics.txt
+
+samtools index sample_dedup.bam
+
+# Reference dictionary and index
+gatk CreateSequenceDictionary -R ref.fasta
+samtools faidx ref.fasta
+
+# Variant calling
+gatk HaplotypeCaller \
+-R ref.fasta \
+-I sample_dedup.bam \
+-O sample_raw.vcf.gz
+
+# Variant filtering
+gatk VariantFiltration \
+-R ref.fasta \
+-V sample_raw.vcf.gz \
+-O sample_filtered.vcf.gz \
+--filter-expression "QD < 2.0" \
+--filter-name "LowQD"
+
+# View variants
+bcftools view sample_filtered.vcf.gz | less
+
+# Passed variants
+bcftools view -f PASS sample_filtered.vcf.gz
+
+# Low-QD variants
+bcftools view -f LowQD sample_filtered.vcf.gz
+
+# VCF to ANNOVAR
+convert2annovar.pl -format vcf4 sample_filtered.vcf.gz > sample.avinput
+
+# ANNOVAR annotation
+perl table_annovar.pl sample.avinput humandb/ \
+-buildver hg38 -out sample -remove \
+-protocol refGene,gnomad211_exome \
+-operation g,f -nastring .
