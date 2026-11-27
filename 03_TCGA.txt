@@ -1,0 +1,79 @@
+
+# 1. Install and load packages
+BiocManager::install(c("TCGAbiolinks", "DESeq2"))
+
+library(TCGAbiolinks)
+library(DESeq2)
+
+# 2. Set working directory
+setwd("C:/Users/TEJAS/OneDrive/Desktop/NGS")
+
+# 3. Query TCGA-LIHC
+query <- GDCquery(
+  project = "TCGA-LIHC",
+  data.category = "Transcriptome Profiling",
+  data.type = "Gene Expression Quantification",
+  workflow.type = "STAR - Counts",
+  sample.type = c("Primary Tumor", "Solid Tissue Normal")
+)
+
+# 4. Download and prepare data
+GDCdownload(query)
+data <- GDCprepare(query)
+
+# 5. Extract counts and metadata
+counts <- assay(data, "unstranded")
+
+dim(counts)
+head(counts[, 1:5])
+
+saveRDS(LIHC, file = "TCGA_LIHC_STAR_Counts.rds")		# which contains:
+#counts 
+#gene annotations 
+#sample #information 
+#metadata
+
+########_____________________####################
+
+metadata <- as.data.frame(colData(data))
+
+# 6. Create DESeq2 object
+metadata$sample_type <- factor(metadata$sample_type)
+
+dds <- DESeqDataSetFromMatrix(
+  countData = round(counts),
+  colData = metadata,
+  design = ~ sample_type
+)
+
+# 7. Filter low-expression genes
+dds <- dds[rowSums(counts(dds) >= 10) >= 5, ]
+
+# 8. Perform differential expression analysis
+dds <- DESeq(dds)
+
+# 9. Get results (Tumor vs Normal)
+res <- results(dds, contrast = c(
+  "sample_type", "Primary Tumor", "Solid Tissue Normal"
+))
+
+# 10. Sort significant genes
+DEG <- as.data.frame(res)
+DEG <- DEG[order(DEG$padj), ]
+DEG <- na.omit(DEG)
+
+# 11. Display top 10 DEGs
+head(DEG, 10)
+
+# 12. Save results
+write.csv(DEG, "LIHC_DEG_results.csv")
+
+# 13. Plot top 10 DEGs
+barplot(
+  head(DEG$log2FoldChange, 10),
+  names.arg = rownames(head(DEG, 10)),
+  las = 2,
+  main = "Top 10 DEGs",
+  ylab = "Log2 Fold Change",
+  col = "skyblue"
+)
