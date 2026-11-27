@@ -2,8 +2,17 @@
 # 1. Install and load packages
 BiocManager::install(c("TCGAbiolinks", "DESeq2"))
 
+or
+
+BiocManager::install(c(
+"TCGAbiolinks",
+"SummarizedExperiment"
+))
+
+library(SummarizedExperiment)
+
 library(TCGAbiolinks)
-library(DESeq2)
+#library(DESeq2)
 
 # 2. Set working directory
 setwd("C:/Users/TEJAS/OneDrive/Desktop/NGS")
