@@ -1,3 +1,82 @@
+
+
+
+###########  WES – Download FASTQ data
+
+# Create folder
+mkdir WES_Subset
+cd WES_Subset
+
+# Download SRA data
+prefetch SRR3315784
+
+# Convert SRA into paired FASTQ
+fasterq-dump SRR3315784 --split-files -e 4
+
+# Compress FASTQ files
+gzip SRR3315784_1.fastq
+gzip SRR3315784_2.fastq
+
+##############---WES – Prepare 100,000 read pairs-----------------#################
+# R1 subset
+seqtk sample -s100 SRR3315784_1.fastq.gz 100000 | gzip > SRR3315784_1_subset.fastq.gz
+
+# R2 subset (same seed)
+seqtk sample -s100 SRR3315784_2.fastq.gz 100000 | gzip > SRR3315784_2_subset.fastq.gz
+
+####################-----RNA-Seq – Download data------------######################
+# Download sample
+prefetch SRR_ACCESSION
+
+# Convert to FASTQ
+fasterq-dump SRR_ACCESSION --split-files -e 4
+
+# Compress
+gzip SRR_ACCESSION_1.fastq
+gzip SRR_ACCESSION_2.fastq
+
+
+##################---------RNA-Seq – Prepare subsets-------------#######################
+# Control 1
+seqtk sample -s101 Control_1_R1.fastq.gz 100000 | gzip > Control_1_R1_subset.fastq.gz
+seqtk sample -s101 Control_1_R2.fastq.gz 100000 | gzip > Control_1_R2_subset.fastq.gz
+
+# Control 2
+seqtk sample -s102 Control_2_R1.fastq.gz 100000 | gzip > Control_2_R1_subset.fastq.gz
+seqtk sample -s102 Control_2_R2.fastq.gz 100000 | gzip > Control_2_R2_subset.fastq.gz
+
+# Treatment 1
+seqtk sample -s103 Treatment_1_R1.fastq.gz 100000 | gzip > Treatment_1_R1_subset.fastq.gz
+seqtk sample -s103 Treatment_1_R2.fastq.gz 100000 | gzip > Treatment_1_R2_subset.fastq.gz
+
+# Treatment 2
+seqtk sample -s104 Treatment_2_R1.fastq.gz 100000 | gzip > Treatment_2_R1_subset.fastq.gz
+seqtk sample -s104 Treatment_2_R2.fastq.gz 100000 | gzip > Treatment_2_R2_subset.fastq.gz
+
+
+
+#######################____----Verify subsets------------############################
+# Check WES
+zcat SRR3315784_1_subset.fastq.gz | wc -l
+zcat SRR3315784_2_subset.fastq.gz | wc -l
+
+# Check RNA-seq
+zcat Control_1_R1_subset.fastq.gz | wc -l
+zcat Control_1_R2_subset.fastq.gz | wc -l
+
+# Check number of reads
+zcat Control_1_R1_subset.fastq.gz | awk 'END{print NR/4}'
+
+# Display first two reads
+zcat Control_1_R1_subset.fastq.gz | head -8
+zcat Control_1_R2_subset.fastq.gz | head -8
+
+
+
+
+
+
+
 WES ANALYSIS – GALAXY
 
 1. Upload FASTQ (R1, R2)
